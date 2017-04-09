@@ -1,7 +1,7 @@
 ---
 title: "Assingment NYC Flight Data"
-author: "Your Name Here"
-date: "October 5, 2016"
+author: "Jennifer Lee"
+date: "April 8, 2017"
 output: html_document
 ---
 
@@ -24,8 +24,17 @@ Put code in each of the sections provided.
 Using the `readr` package read the `flights` data.
 
 ```{r}
+#Load readr
+library(readr)
 
+#Set working directory
+setwd("~/machine_learning_r/02-building-blocks/02-exercise-nycflights/data")
 
+#Read the following csv files from data folder
+airports <- read_csv("airports.csv")
+flights <- read_csv("flights.csv")
+planes <- read_csv("planes.csv")
+weather <- read_csv("weather.csv")
 ```
 
 ## Numeric Variables  
@@ -33,7 +42,29 @@ Using the `readr` package read the `flights` data.
 Plot a histogram of arrival delays and departure delays 
 
 ```{r}
+#Load ggplot2
+library(ggplot2)
 
+#Plot histogram of arrival delays
+arrdelayhist <- qplot(flights$arr_delay,
+      geom="histogram",
+      main = "Histogram of Arrival Delays for NYC Flights",
+      xlab = "Arrival Delay (minutes)",
+      ylab = "Count",
+      fill=I("cyan4"),
+      binwidth = 100,
+      ylim = c(0, 300000))
+arrdelayhist
+
+#Plot histogram of departure delays
+depdelayhist <- qplot(flights$dep_delay,
+      geom="histogram",
+      main = "Histogram of Departure Delays for NYC Flights",
+      xlab = "Departure Delay (minutes)",
+      ylab = "Count",
+      fill=I("darkslateblue"),
+      binwidth = 100)
+depdelayhist
 ```
 
 ## Scatterplot
@@ -41,7 +72,16 @@ Plot a histogram of arrival delays and departure delays
 Plot a scatterplot of date vs arrival delay 
 
 ```{r}
+#Combine year, month, and day columns into one column labeled "date"
+flights$date <- as.Date(with(flights, paste(year, month, day,sep="-")), "%Y-%m-%d")
 
+#Scatterplot using qplot for date vs arrival delays
+scatter <- qplot(date, arr_delay, data = flights, 
+      colour = I("darkorange3"),
+      xlab = "Date",
+      ylab = "Arrival Delay (minutes)",
+      main = "Date vs Arrival Delay for Flights in NYC")
+scatter
 ```
 
 
@@ -51,7 +91,12 @@ Plot a scatterplot of date vs arrival delay
 Create a `table`, counting the flights by origin airports and carrier.
 
 ```{r}
+#Load plyr package
+library(plyr)
 
+#Count flights by origin and carrier
+origincarrier <- count(flights, c('origin', 'carrier'))
+origincarrier
 
 ```
 
@@ -61,6 +106,26 @@ Create a `table`, counting the flights by origin airports and carrier.
 **Read** in the other data sets. Use methods to join the data together to create a single table containing one record per row.  (HINT: see `?data.table` or `?dplyr::join`)
 
 ```{r}
+#Load dplyr
+library(dplyr)
+
+#Do a left join with flights and planes data sets and join by variable tailnum
+combined <- left_join(flights, planes, by = "tailnum")
+
+#Do another left join with the previous combined data set and airport by variable origin
+combined <- left_join(combined, airports, c("origin" = "faa"))
+
+#Repeat above set this time joining by destination, need to separate this because it has to be an OR join not AND
+combined <- left_join(combined, airports, c("dest" = "faa"))
+
+#Last left join, combine above with weather data set and join by origin AND date
+combined <- left_join(combined, weather, by = c("origin" = "origin", "time_hour" = "time_hour"))
+
+combined
+
+#L <- list(airports, flights, planes, weather)
+#join_all(L, type='inner')
+
 
 ```
 
