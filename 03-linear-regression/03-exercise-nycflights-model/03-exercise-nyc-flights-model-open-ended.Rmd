@@ -1,7 +1,7 @@
 ---
 title: "NYCFlights: Arrival Delay Regression Model (Open Ended Variation)"
-author: "[Your Name]"
-date: "[Today's Date]"
+author: "Jennifer Lee"
+date: "April 14, 2017"
 output: html_document
 ---
 
@@ -21,17 +21,83 @@ Break the process down into steps and create a codeblock for each step.
 (You can start with the data that you created last week.)
 
 
-## Step 1: [Step Name] 
+## Step 1: Load packages and data into R
 
-```{r "Step 1: [Step Name]" }
+```{r}
+# Load the following packages into R
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(caret)
+
+#Read the following csv files from data folder from week 2 of class
+airports <- read_csv("./02-building-blocks/02-exercise-nycflights/data/airports.csv")
+flights <- read_csv("./02-building-blocks/02-exercise-nycflights/data/flights.csv")
+planes <- read_csv("./02-building-blocks/02-exercise-nycflights/data/planes.csv")
+weather <- read_csv("./02-building-blocks/02-exercise-nycflights/data/weather.csv")
+```
+
+## Step 2: Pre-processing Data
+```{r}
+#Combine datasets into one data table:
+
+#Do a left join with flights and planes data sets and join by variable tailnum
+combined <- left_join(flights, planes, by = "tailnum")
+#Do another left join with the previous combined data set and airport by variable origin
+combined <- left_join(combined, airports, c("origin" = "faa"))
+#Repeat above set this time joining by destination, need to separate this because it has to be an OR join not AND
+combined <- left_join(combined, airports, c("dest" = "faa"))
+#Last left join, combine above with weather data set and join by origin AND date
+combined <- left_join(combined, weather, by = c("origin" = "origin", "time_hour" = "time_hour"))
+
+#Check for NA's in arrival delay column
+summary(combined$arr_delay)
+#There are 9,430 NA's out of 336,776 rows, delete the NAs
+subsetcombined <- combined[!is.na(combined$arr_delay),]
+#Keep only columns with numeric data
+subsetcombined <- subset(subsetcombined, select = c(month.x, dep_time, dep_delay, arr_time, arr_delay, air_time, distance, hour.x, temp, dewp, humid, wind_dir, wind_speed, wind_gust, precip, pressure, visib))
+
+summary(subsetcombined)
 
 ```
 
-## Step 2: ...
+## Step 3: Create training and test data
+```{r}
+# setting seed to reproduce results of random sampling
+set.seed(100)
+#row indices for training data
+trainingRowIndex <- sample(1:nrow(subsetcombined), 0.7*nrow(subsetcombined)) 
+#model training data
+trainingData <- subsetcombined[trainingRowIndex, ] 
+#test data
+testData <- subsetcombined[-trainingRowIndex, ]
+```
 
+## Step 4: Develop model on training data and use to predict on test data
+```{r}
+#build the model
+lmMod <- lm(arr_delay ~ ., data=trainingData)
+#predict arrival delay
+arrdelayPred <- predict(lmMod, newdata=testData)
 
+#review diagnostic measures
+summary(lmMod)
+#The following variables have a low p-value (i.e. at least a 95% confidence interval):
+# month, departure delay, arrival time, air time, distance, hour, temperature, dew point, humidity, wind direction, precipitation, pressure, and visibility
+#The R-squared value is 0.8788, which means there is a positive correlation between arrival delay and all the variables.
+
+```
+
+## Step 5: Calculate prediction accuracy and error rates
+```{r}
+
+#create a data frame comparing the observed values from the test data to the predicted values from the predicted values
+modelvalues <- data.frame(obs = testData$arr_delay, pred=arrdelayPred)
+#show summary results for Root Mean Square Error and R-squared values
+defaultSummary(modelvalues)
+```
 
 # Question:
 
 Is this a good model?  (Write your answer here.)
-
+The root mean square error and the r-squared values for the test and predicted values are 14.75 and 0.878, respectively. Since the r-squared value is fairly high, I would say that the test data is a good model of the training data.
