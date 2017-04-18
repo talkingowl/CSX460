@@ -27,14 +27,13 @@ Break the process down into steps and create a codeblock for each step.
 # Load the following packages into R
 library(readr)
 library(dplyr)
-library(ggplot2)
 library(caret)
 
 #Read the following csv files from data folder from week 2 of class
-airports <- read_csv("./02-building-blocks/02-exercise-nycflights/data/airports.csv")
-flights <- read_csv("./02-building-blocks/02-exercise-nycflights/data/flights.csv")
-planes <- read_csv("./02-building-blocks/02-exercise-nycflights/data/planes.csv")
-weather <- read_csv("./02-building-blocks/02-exercise-nycflights/data/weather.csv")
+airports <- read_csv("airports.csv")
+flights <- read_csv("flights.csv")
+planes <- read_csv("planes.csv")
+weather <- read_csv("weather.csv")
 ```
 
 ## Step 2: Pre-processing Data
@@ -82,11 +81,11 @@ arrdelayPred <- predict(lmMod, newdata=testData)
 
 #review diagnostic measures
 summary(lmMod)
-#The following variables have a low p-value (i.e. at least a 95% confidence interval):
-# month, departure delay, arrival time, air time, distance, hour, temperature, dew point, humidity, wind direction, precipitation, pressure, and visibility
-#The R-squared value is 0.8788, which means there is a positive correlation between arrival delay and all the variables.
-
 ```
+The following variables have a low p-value (i.e. at least a 95% confidence interval): month, departure delay, arrival time, air time, distance, hour, temperature, dew point, humidity, wind direction, precipitation, pressure, and visibility,
+
+The R-squared value is 0.8788, which means there is a positive correlation between arrival delay and all the variables.
+
 
 ## Step 5: Calculate prediction accuracy and error rates
 ```{r}
@@ -99,5 +98,6 @@ defaultSummary(modelvalues)
 
 # Question:
 
-Is this a good model?  (Write your answer here.)
+Is this a good model?
+
 The root mean square error and the r-squared values for the test and predicted values are 14.75 and 0.878, respectively. Since the r-squared value is fairly high, I would say that the test data is a good model of the training data.

@@ -1,7 +1,7 @@
 ---
 title: "01-exercises"
-author: "Christopher Brown"
-date: "April 6, 2016"
+author: "Jennifer Lee"
+date: "March 31, 2017"
 output: html_document
 ---
 
@@ -18,16 +18,21 @@ Write a function (f) that takes a vector of numbers, **x**, and returns a vector
     [1] 80 16 40 10
     # 5*2*8, 1*2*8, 1*5*8, 1*2*5  
 
-
 ### Solution 
 
 ```{r}
+x <- c(1, 5, 2, 8)
 f <- function(x) {
-  
-  # ...
-  
+  result <- 0
+  for(i in 1:4) {
+    result[i] <- prod(x[-i])
+  }
+  return(result)
 }
-
+# Alternative solution:
+# prod(x)/x
+#R is a vector language that is why that works
+f(x)
 ```
     
 
@@ -35,7 +40,7 @@ f <- function(x) {
 ## Exercise 2
 
 Write a function f(x) to accept an integer vector, and returns a vector with those numbers except for: 
-   multiples of 3 replaced by "Fizz" 
+   multiples of 3 replaced by "Fizz"? 
    multiples of 5 replaced by "Buzz" 
    multiples of 3 and 5 replaced by "FizzBuzz""
    
@@ -45,12 +50,17 @@ Write a function f(x) to accept an integer vector, and returns a vector with tho
     > f(1:20) 
     # 1 2 Fizz 4 Buzz Fizz 7 8 Fizz Buzz 11 Fizz 13 14 FizzBuzz 16 17 Fizz 19 Buzz
 
-
 ### Solution
 
 ```{r}
+x <- 1:20
 f <- function(x) {
-  # ...
+ifelse(x %% 3 == 0 & x %% 5 == 0, "FizzBuzz",
+       ifelse(x %% 3 == 0, "Fizz", 
+              ifelse(x %% 5 == 0, "Buzz", x)
+              )
+       )
   
 }
+f(1:20)
 ```

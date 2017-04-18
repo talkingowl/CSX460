@@ -29,12 +29,13 @@ library(readr)
 
 #Set working directory
 setwd("~/machine_learning_r/02-building-blocks/02-exercise-nycflights/data")
+#NEXT TIME DO NOT SET WORKING DIRECTORY TO OWN FOLDER!!!
 
 #Read the following csv files from data folder
-airports <- read_csv("airports.csv")
-flights <- read_csv("flights.csv")
-planes <- read_csv("planes.csv")
-weather <- read_csv("weather.csv")
+airports <- read_csv("data/airports.csv")
+flights <- read_csv("data/flights.csv")
+planes <- read_csv("data/planes.csv")
+weather <- read_csv("data/weather.csv")
 ```
 
 ## Numeric Variables  
@@ -52,7 +53,7 @@ arrdelayhist <- qplot(flights$arr_delay,
       xlab = "Arrival Delay (minutes)",
       ylab = "Count",
       fill=I("cyan4"),
-      binwidth = 100,
+      binwidth = 30,
       ylim = c(0, 300000))
 arrdelayhist
 
@@ -93,10 +94,16 @@ Create a `table`, counting the flights by origin airports and carrier.
 ```{r}
 #Load plyr package
 library(plyr)
-
 #Count flights by origin and carrier
 origincarrier <- count(flights, c('origin', 'carrier'))
-origincarrier
+
+#Alternative solution:
+library(dplyr)
+# create data frame grouped by origin and carrier
+g <- group_by(flights.df, origin, carrier)
+
+# use View() to view the entire table
+View(origincarrier)
 
 ```
 
@@ -121,11 +128,20 @@ combined <- left_join(combined, airports, c("dest" = "faa"))
 #Last left join, combine above with weather data set and join by origin AND date
 combined <- left_join(combined, weather, by = c("origin" = "origin", "time_hour" = "time_hour"))
 
-combined
+View(combined)
 
 #L <- list(airports, flights, planes, weather)
 #join_all(L, type='inner')
 
+#Professor's solution:
+flights$carrier %>% table( useNA="always") %>% sort
+flights$origin %>% table( useNA="always") %>% sort
+
+yx <- flights
+yx <- merge( yx, planes, by="tailnum", all.x = TRUE)
+yx <- merge( yx, airports, by.x="origin", by.y="faa", all.x=TRUE, suffixes=c("",".origin") ) #suffix adds a suffix to end of column name, don't want to replace the first part of the column name so leave that argument blank (i.e., "")
+yx <- merge(yx, airports, by.x="dest", by.y="faa", all.x=TRUE, suffixes=c("", ".dest"))
+yx <- merge(flights, weather, by=c("origin", "year", "month", "day", "hour"), all.x=TRUE, suffixes=c('',".weather"))
 
 ```
 
