@@ -101,3 +101,5 @@ defaultSummary(modelvalues)
 Is this a good model?
 
 The root mean square error and the r-squared values for the test and predicted values are 14.75 and 0.878, respectively. Since the r-squared value is fairly high, I would say that the test data is a good model of the training data.
+
+[You want to compare RMSE of the naive model with the RMSE of the built model]
