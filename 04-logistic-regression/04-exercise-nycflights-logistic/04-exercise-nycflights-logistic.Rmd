@@ -1,7 +1,7 @@
 ---
-title: "NYCFlights: Arrival Delay Logictic Model"
-author: "[Your Name]"
-date: "[Today's Date]"
+title: "NYCFlights: Arrival Delay Logistic Model"
+author: "Jennifer Lee"
+date: "April 29, 2017"
 output: html_document
 ---
 
@@ -10,37 +10,190 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-## Logsitic and Inverse Logistic Transformation 
+## Logistic and Inverse Logistic Transformation 
 
 - Write an R function for the logistic function. The function should accept a `numeric` vector with values `[-Inf,Inf]` and produce a numeric vector in the the range `[0,1]`.
 
-- Plot the logistic function from  `[-10,10]`
+- Plot the logistic function from  `[0,1]`
 
-- Write a R function for the inverse logistic function. The function should accept a `numeric` vector with values `[0,1]` and prodcuce a numeric vector in the range `[-Inf,Inf]`
+- Write an R function for the inverse logistic function. The function should accept a `numeric` vector with values `[0,1]` and produce a numeric vector in the range `[-Inf,Inf]`
 
-- Plot the Inverse Logistic function from `[0,1]`
+- Plot the Inverse Logistic function from `[-10,10]`
 
 
 **Hint:** For plotting curves see `?graphics::curve` or `?ggplot2::stat_function`
 
 ```{r "Logistic and Inverse Logistic" }
+#Part 1: Write an R function for the logistic function.
+
+#Vector with values [-Inf,Inf]
+l <- seq(-10,10, length=26)
+
+#Plot logistic function from [0,1]
+logistic <- function(t) {
+  exp(t)/(1 + exp(t)) }
+
+#Logistic function produces a vector in range [0,1]
+vector <- logistic(l)
+range(vector)
+
+#Plot logistic function
+plot(logistic(l) ~ l, type = "l", main="Logistic Function", xlab="Predictor Variable",ylab="Probability")
+
+
+#Part 2: Write a R function for the inverse logistic function
+
+#Vector with values [0,1]
+x <- seq(0,1, length=100)
+x <- x[2:(length(x)-1)]
+
+#Inverse Logistic function
+logit <- function (t) {
+  log( t / (1-t) ) }
+
+#Inverse Logistic function produces a vector in range [-Inf,Inf]
+invvector <- (logit(x))
+range(invvector)
+
+#Plot inverse logistic function
+plot(logit(x) ~ x, type="l", main="Inverse Logistic Function", xlab="Predictor Variable",ylab="logit(x)",ylim=c(-10,10))
 
 ```
 
 
 # NYCFlights Model
 
-Using the rectangular data that you created from the earlier assignment and following theexample from the text and class, create a model for arr_delay >= 22 minutes. Describe/Explain each of the steps and show all work.
+Using the rectangular data that you created from the earlier assignment and following the example from the text and class, create a model for arr_delay >= 22 minutes. Describe/Explain each of the steps and show all work.
 
 KNIT YOUR DOCUMENT AS *HTML* AND SUBMIT IT AND THE `Rmd` file to your repository.   
 
+```{r "Logistic Regression on NYC Flights Model" }
+#Step 1: Load packages and data
+library(readr)
+library(dplyr)
+library(caret)
+#Read the following csv files from data folder from week 2 of class
+airports <- read_csv("airports.csv")
+flights <- read_csv("flights.csv")
+planes <- read_csv("planes.csv")
+weather <- read_csv("weather.csv")
+#Combine datasets into one data table:
+#Do a left join with flights and planes data sets and join by variable tailnum
+combined <- left_join(flights, planes, by = "tailnum")
+#Do another left join with the previous combined data set and airport by variable origin
+combined <- left_join(combined, airports, c("origin" = "faa"))
+#Repeat above set this time joining by destination, need to separate this because it has to be an OR join not AND
+combined <- left_join(combined, airports, c("dest" = "faa"))
+#Last left join, combine above with weather data set and join by origin AND date
+combined <- left_join(combined, weather, by = c("origin" = "origin", "time_hour" = "time_hour"))
+#There are 9,430 NA's out of 336,776 rows, delete the NAs
+subsetcombined <- combined[!is.na(combined$arr_delay),]
+#Keep only columns with numeric data
+subsetcombined <- subset(subsetcombined, select = c(month.x, dep_time, dep_delay, arr_time, arr_delay, air_time, distance, hour.x, temp, dewp, humid, wind_dir, wind_speed, wind_gust, precip, pressure, visib))
+#Create a new column called "delay22min" with two categories: flights with an arrival delay >= 22 min and flights with arrival delay < 22 min
+subsetcombined$delay22min <- ifelse(subsetcombined$arr_delay >= 22, "delay >= 22 min", "delay < 22min") 
+subsetcombined$delay22min <- as.factor(subsetcombined$delay22min)
+
+# setting seed to reproduce results of random sampling
+set.seed(1000)
+#row indices for training data
+trainingRowIndex <- sample(1:nrow(subsetcombined), 0.7*nrow(subsetcombined)) 
+#model training data
+trainingData <- subsetcombined[trainingRowIndex, ] 
+#test data
+testData <- subsetcombined[-trainingRowIndex, ]
+
+#build the naive model
+lmMod <- lm(arr_delay ~ dep_delay, data=trainingData)
+summary(lmMod)
+#Naive model provides an R-squared value of 0.8386
+
+#build a better model
+glmMod <- glm(formula = delay22min ~ dep_delay, family = binomial, data = trainingData)
+summary(glmMod)
+
+#predict arrival delay for naive model
+arrdelayPredlm <- predict(lmMod, newdata=testData)
+
+#predict arrival delay for better model
+arrdelayPredglm <- predict(glmMod, newdata=testData)
+
+#create a data frame comparing the observed values from the test data to the predicted values from the predicted values
+modelvalueslm <- data.frame(obs = testData$arr_delay, pred=arrdelayPredlm)
+modelvaluesglm <- data.frame(obs = testData$arr_delay, pred=arrdelayPredglm)
+
+#show summary results for Root Mean Square Error and R-squared values
+#Naive Model:
+defaultSummary(modelvalueslm)
+
+#Second Model:
+defaultSummary(modelvaluesglm)
+
+```
 
 # Question:
 
-Is this a good model?  (Write your answer here.)
+Is this a good model?
+Although the second model has the same R-squared value as the naive model (i.e., 0.837), the root mean squared error is more than twice as large as that of the naive, which means that the naive model is a better fit.
 
 
 # PART B:
 
 Your model should be good at explaining tardiness. Now, assume that your job is to predict arrival delays a month in advance. You can no longer use all the features in your model. Retrain your model using only features that will be *known* only a month in advance of the departure time.  Show all steps as above.
 
+```{r "Predicting Arrival Delays a Month in Advance" }
+#Step 1: Create a second data frame for Part B and add a new column to separate flights with an arrival delay >= 22 min
+
+#Combine datasets into one data table:
+#Do a left join with flights and planes data sets and join by variable tailnum
+combined2 <- left_join(flights, planes, by = "tailnum")
+#Do another left join with the previous combined data set and airport by variable origin
+combined2 <- left_join(combined2, airports, c("origin" = "faa"))
+#Repeat above set this time joining by destination, need to separate this because it has to be an OR join not AND
+combined2 <- left_join(combined2, airports, c("dest" = "faa"))
+#There are 9,430 NA's out of 336,776 rows, delete the NAs
+subsetcombined2 <- combined2[!is.na(combined2$arr_delay),]
+#Keep only numeric variables that are known 1 month in advance of departure date
+subsetcombined2 <- subset(subsetcombined2, select = c(month, sched_dep_time, sched_arr_time, carrier, distance, arr_delay))
+#Create a new column called "delay22min" with two categories: flights with an arrival delay >= 22 min and flights with arrival delay < 22 min
+subsetcombined2$delay22min <- ifelse(subsetcombined2$arr_delay >= 22, "delay >= 22 min", "delay < 22min") 
+subsetcombined2$delay22min <- as.factor(subsetcombined2$delay22min)
+
+# setting seed to reproduce results of random sampling
+set.seed(1000)
+#row indices for training data
+trainingRowIndex2 <- sample(1:nrow(subsetcombined2), 0.7*nrow(subsetcombined2)) 
+#model training data
+trainingData2 <- subsetcombined2[trainingRowIndex2, ] 
+#test data
+testData2 <- subsetcombined2[-trainingRowIndex2, ]
+
+#build the naive model
+lmMod2 <- lm(arr_delay ~ ., data=trainingData2)
+summary(lmMod2)
+#Naive model provides an R-squared value of 0.8386
+
+#build a better model
+glmMod2 <- glm(formula = delay22min ~ ., family = binomial, data = trainingData2)
+summary(glmMod2)
+
+#predict arrival delay for naive model
+arrdelayPredlm2 <- predict(lmMod2, newdata=testData2)
+
+#predict arrival delay for better model
+arrdelayPredglm2 <- predict(glmMod2, newdata=testData2)
+
+#create a data frame comparing the observed values from the test data to the predicted values from the predicted values
+modelvalueslm2 <- data.frame(obs = testData2$arr_delay, pred=arrdelayPredlm2)
+modelvaluesglm2 <- data.frame(obs = testData2$arr_delay, pred=arrdelayPredglm2)
+
+#show summary results for Root Mean Square Error and R-squared values
+#Naive Model:
+defaultSummary(modelvalueslm2)
+
+#Second Model:
+defaultSummary(modelvaluesglm2)
+```
+
+# Part B Results:
+For this part, the variables month, sched_dep_time, sched_arr_time, carrier, distance were used. While running the naive and second model, all predictor variables were used (unlike in Part A, where it was just the departure delay). Interestingly, the naive model has a lower R-squared value of 0.55 compared to the second model of 0.9999. However the root mean square error for the second model is much greater than that of the naive model, so the naive model appears to have a better absolute measure of fit and a poorer relative measure of fit.
