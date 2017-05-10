@@ -1,7 +1,7 @@
 ---
 title: "Classification Mettrics"
-author: "Christopher Brown"
-date: "October 5, 2015"
+author: "Jennifer Lee"
+date: "May 7, 2017"
 output: html_document
 ---
 
@@ -26,8 +26,61 @@ Write functions of `y` and `y_hat` to calculate the following classification met
 * Kappa
 
 ```{r "definitions", echo=FALSE}
+#Predicted conditions are y_hat
+#Observed conditions are y
+#True Positive (TP) = y positive and y_hat positive
+#False Negative (FN) = y positive and y_hat negative
+#False Positive (FP) = y negative and y_hat positive
+#True Negative (TN) = y negative and y_hat negative
 
+#True Positive Rate = sensitivity or recall
+TPR <- function(TP, FN) {
+  TP/(TP+FN) }
 
+#False Positive Rate
+FPR <- function(FP, TN) {
+  FP/(FP+TN) }
+
+#True Negative Rate = specificity
+TNR <- function(TN, FP) {
+  TN/(TN+FP) }
+
+#False Negative Rate
+FNR <- function(FN, TP) {
+  FN/(FN+TP) }
+
+#Sensitivity = true positive rate
+sensitivity <- function(TP, FN) {
+  TP/(TP+FN) }
+
+#Specificity
+specificity <- function(TN, FP) {
+  TN/(TN+FP) }
+
+#Recall = sensitivity or true positive rate
+recall <- function(TP, FN) {
+  TP/(TP+FN) }
+
+#Precision
+precision <- function(TP, FP) {
+  TP/(TP+FP) }
+
+#Prevalence
+prevalence <- function(TP, FN, FP, TN) {
+  (TP+FN)/(TP+FN+FP+TN) }
+
+#Accuracy
+accuracy <- function(TP,TN,FP,FN) {
+  (TP+TN)/(TP+FP+FN+TN) }
+
+#Kappa
+kappa <- function(TP,FP,FN,TN) {
+  p_0 <- (TP+TN)/(TP+FP+FN+TN)
+  p_yes <- ((TP+FP)/(TP+FP+FN+TN))*((TP+FN)/(TP+FP+FN+TN))
+  p_no <- ((FN+TN)/(FN+TN+FP+TP))*((TN+FP)/(TP+FP+FN+TN))
+  p_e <- p_yes + p_no 
+  k <- (p_0-p_e)/(1-p_e) 
+  return(k) }
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
@@ -39,7 +92,118 @@ Use the function(s) above to calculate the metrics for your late arrival model t
 you created last week. 
 
 ```{r "evaluations"}
+library(readr)
+library(dplyr)
+#Read the following csv files from data folder from week 2 of class
+airports <- read_csv("airports.csv")
+flights <- read_csv("flights.csv")
+planes <- read_csv("planes.csv")
+weather <- read_csv("weather.csv")
+#Combine datasets into one data table:
+combined <- left_join(flights, planes, by = "tailnum")
+combined <- left_join(combined, airports, c("origin" = "faa"))
+combined <- left_join(combined, airports, c("dest" = "faa"))
+combined <- left_join(combined, weather, by = c("origin" = "origin", "time_hour" = "time_hour"))
+#There are 9,430 NA's out of 336,776 rows, delete the NAs
+subsetcombined <- combined[complete.cases(combined$arr_delay),]
+#Keep only columns with numeric data
+subsetcombined <- subset(combined, select = c(month.x, dep_time, dep_delay, arr_time, arr_delay, air_time, distance, hour.x, temp, dewp, humid, wind_dir, wind_speed, wind_gust, precip, pressure, visib))
+#Create a new column called "delay22min" with two categories: flights with an arrival delay >= 22 min and flights with arrival delay < 22 min
+subsetcombined$delay22min <- ifelse(subsetcombined$arr_delay >= 22, "delay >= 22 min", "delay < 22min") 
+subsetcombined$delay22min <- as.factor(subsetcombined$delay22min)
+subsetcombined <- subsetcombined[complete.cases(subsetcombined$delay22min),]
 
+# setting seed to reproduce results of random sampling
+set.seed(1000)
+#row indices for training data
+ind <- sample(2, nrow(subsetcombined), replace=TRUE, prob=c(0.7,0.3))
+#model training data
+traindataset <- subsetcombined[ind==1,]
+#test data
+testdataset <- subsetcombined[ind==2,]
+testdataset$delay22min <- as.factor(testdataset$delay22min)
 
+#build the model
+results <- lm(arr_delay~., testdataset)
+summary(results)
+
+#prediction
+pred <- predict(results, newdata=testdataset, type = "response")
+
+#check results
+head(pred)
+head(testdataset$arr_delay)
+head(testdataset$delay22min)
+
+#label predictions as either Early/On-Time if arrival delay is < 22 min
+model_pred_direction <- rep("Early/On-Time", 97564)
+model_pred_direction[pred > 22] <- "Late"
+
+table(model_pred_direction, testdataset$delay22min)
+
+TP <- 77747
+TN <- 14302
+FN <- 444
+FP <- 5114
+
+#True Positive Rate = sensitivity or recall
+TPR <- function(TP, FN) {
+  TP/(TP+FN) }
+TPR(TP, FN)
+
+#False Positive Rate
+FPR <- function(FP, TN) {
+  FP/(FP+TN) }
+FPR(FP, TN)
+
+#True Negative Rate = specificity
+TNR <- function(TN, FP) {
+  TN/(TN+FP) }
+TNR(TN,FP)
+
+#False Negative Rate
+FNR <- function(FN, TP) {
+  FN/(FN+TP) }
+FNR(FN, TP)
+
+#Sensitivity = true positive rate
+sensitivity <- function(TP, FN) {
+  TP/(TP+FN) }
+sensitivity(TP, FN)
+
+#Specificity
+specificity <- function(TN, FP) {
+  TN/(TN+FP) }
+specificity(TN, FP)
+
+#Recall = sensitivity or true positive rate
+recall <- function(TP, FN) {
+  TP/(TP+FN) }
+recall(TP, FN)
+
+#Precision
+precision <- function(TP, FP) {
+  TP/(TP+FP) }
+precision(TP, FP)
+
+#Prevalence
+prevalence <- function(TP, FN, FP, TN) {
+  (TP+FN)/(TP+FN+FP+TN) }
+prevalence(TP,FN,FP,TN)
+
+#Accuracy
+accuracy <- function(TP,TN,FP,FN) {
+  (TP+TN)/(TP+FP+FN+TN) }
+accuracy(TP,TN,FP,FN)
+
+#Kappa
+kappa <- function(TP,FP,FN,TN) {
+  p_0 <- (TP+TN)/(TP+FP+FN+TN)
+  p_yes <- ((TP+FP)/(TP+FP+FN+TN))*((TP+FN)/(TP+FP+FN+TN))
+  p_no <- ((FN+TN)/(FN+TN+FP+TP))*((TN+FP)/(TP+FP+FN+TN))
+  p_e <- p_yes + p_no 
+  k <- (p_0-p_e)/(1-p_e) 
+  return(k) }
+kappa(TP,FP,FN,TN)
 ```
 

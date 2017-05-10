@@ -71,7 +71,9 @@ KNIT YOUR DOCUMENT AS *HTML* AND SUBMIT IT AND THE `Rmd` file to your repository
 #Step 1: Load packages and data
 library(readr)
 library(dplyr)
+library(data.table)
 library(caret)
+library(MASS)
 #Read the following csv files from data folder from week 2 of class
 airports <- read_csv("airports.csv")
 flights <- read_csv("flights.csv")
@@ -87,12 +89,15 @@ combined <- left_join(combined, airports, c("dest" = "faa"))
 #Last left join, combine above with weather data set and join by origin AND date
 combined <- left_join(combined, weather, by = c("origin" = "origin", "time_hour" = "time_hour"))
 #There are 9,430 NA's out of 336,776 rows, delete the NAs
-subsetcombined <- combined[!is.na(combined$arr_delay),]
+subsetcombined <- combined[complete.cases(combined),]
 #Keep only columns with numeric data
 subsetcombined <- subset(subsetcombined, select = c(month.x, dep_time, dep_delay, arr_time, arr_delay, air_time, distance, hour.x, temp, dewp, humid, wind_dir, wind_speed, wind_gust, precip, pressure, visib))
 #Create a new column called "delay22min" with two categories: flights with an arrival delay >= 22 min and flights with arrival delay < 22 min
 subsetcombined$delay22min <- ifelse(subsetcombined$arr_delay >= 22, "delay >= 22 min", "delay < 22min") 
 subsetcombined$delay22min <- as.factor(subsetcombined$delay22min)
+
+subsetcombined$arr_delay %>% qplot
+subsetcombined$delay22min %>% qplot
 
 # setting seed to reproduce results of random sampling
 set.seed(1000)
@@ -106,11 +111,18 @@ testData <- subsetcombined[-trainingRowIndex, ]
 #build the naive model
 lmMod <- lm(arr_delay ~ dep_delay, data=trainingData)
 summary(lmMod)
+
 #Naive model provides an R-squared value of 0.8386
 
 #build a better model
-glmMod <- glm(formula = delay22min ~ dep_delay, family = binomial, data = trainingData)
+glmMod <- glm(formula = delay22min ~ ., family = binomial, data = trainingData)
 summary(glmMod)
+
+#confusion matrix
+logisticRegModel <- train(delay22min ~ ., data=trainingData, method = 'glm', family = 'binomial')
+logRegPrediction <- predict(logisticRegModel, trainingData)
+logRegConfMat <- confusionMatrix(logRegPrediction, trainingData[["delay22min"]])
+logRegConfMat
 
 #predict arrival delay for naive model
 arrdelayPredlm <- predict(lmMod, newdata=testData)
