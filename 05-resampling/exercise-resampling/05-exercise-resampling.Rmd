@@ -16,12 +16,43 @@ output: html_document
 - Calculte the `sd( mean(x) )` using the **using 10 bootstrap sample**.  Create your own folds, show your work. 
 
 ```{r}
+#10-fold resampling
 set.seed(1) 
 x <- runif(20,1,20)
 
-sd_cv # <- Your work here 
+#y~x+error
+y <- x+rnorm(100)*.1
 
-sd_boot # <- Your work here
+#Create data frame
+dataset <- data.frame(x,y) 
+
+#create 10 folds
+k <- 10 
+library(cvTools)
+folds <- cvFolds(NROW(dataset), K=k)
+dataset$holdoutpred <- rep(0,nrow(dataset))
+
+for(i in 1:k){
+  train <- dataset[folds$subsets[folds$which != i], ] #Set the training set
+  validation <- dataset[folds$subsets[folds$which == i], ] #Set the validation set
+  newlm <- lm(y~x,data=train) #Get new linear model (just fit on the train data)
+  newpred <- predict(newlm,newdata=validation) #Get predictions for the validation set (from the model just fit on the train data)
+  dataset[folds$subsets[folds$which == i], ]$holdoutpred <- newpred #Put the hold out prediction in the data set for later use
+}
+
+x_prediction <- dataset$holdoutpred
+mean(x_prediction)
+sd_cv <- sd(x_prediction)
+sd_cv
+
+#10 bootstrap sample
+medians <- numeric(1000)
+for (i in 1:1000) {
+  medians[i] <- median(sample(x, replace=TRUE))
+}
+mean(medians)
+sd_boot <- sd(medians)
+sd_boot
 ```
 
 
