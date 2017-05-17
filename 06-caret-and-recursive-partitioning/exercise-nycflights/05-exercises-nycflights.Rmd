@@ -1,14 +1,18 @@
 ---
 title: "Caret / Recursive Partitioning"
-author: "Your Name Here"
-date: "Today's Date"
+author: "Jennifer Lee"
+date: "May 13, 2017"
 output: pdf_document
 ---
 
 ```{r init, warning=FALSE, echo=FALSE, message=FALSE}
 library(rpart)
 library(caret)
-# .. Additional libraries
+library(ggplot2)
+library(dplyr)
+library(ROCR)
+library(rpart.plot)
+library(partykit)
 ```
 
 
@@ -16,14 +20,79 @@ library(caret)
 
 Rebuild your logistic regression model from the previous week, this time using the `caret` package. 
 
-- Calculate the training or apparent performance of the model. 
+- Calculate the training or apparent performance of the model.
 - Calculate an unbiased measure of performance 
 - Create a ROC Curve for your model
 
 Show all work.
 
 ```{r logistic model}
-# Your Work Here
+#Read the joined NYC flights data set with added "delay" column
+nycflights2 <- read.csv("nycflights2.csv")
+
+#Task 1. Calculate training or apparent performance of the model.
+# create a stratified random sample of the data into training and test sets using caret
+set.seed(1000)
+inTraining <- createDataPartition(nycflights2$delay22min, p = .75, list = FALSE)
+training <- nycflights2[ inTraining,]
+testing <- nycflights2[-inTraining,]
+
+#build the logistic regression model
+glmMod <- glm(formula = delay22min ~ month.x + dep_time + dep_delay + arr_time + air_time + distance + hour.x + temp + dewp + humid, family = binomial, data = training)
+summary(glmMod)
+
+#prediction
+predglm <- predict(glmMod, newdata=testing, type = "response")
+
+#label predictions as same level as last column in NYCflights2 data set and change class to factor
+model_predglm <- rep("delay < 22min", 81835)
+model_predglm[predglm > 0.5] <- "delay >= 22 min"
+model_predglm <- as.factor(model_predglm)
+
+#Task 2. Calculate Unbiased Measure of Performance
+#create a confusion matrix using the caret package
+confusionMatrix(data=model_predglm, testing$delay22min)
+    
+#Use lift function to evaluate probabilities thresholds that can capture a certain percentage of hits by simulating two-class samples uing twoClassSim function and fit a set of models to the training set
+set.seed(2)
+lift_training <- twoClassSim(1000)
+lift_testing <- twoClassSim(1000)
+ctrl <- trainControl(method = "cv", classProbs = TRUE, summaryFunction = twoClassSummary)
+
+set.seed(1045)
+fda_lift <- train(Class ~ ., data = lift_training, method = "fda", 
+                  metric = "ROC", tuneLength = 20, trControl = ctrl)
+
+set.seed(1045)
+lda_lift <- train(Class ~ ., data = lift_training, method = "lda", 
+                  metric = "ROC", trControl = ctrl)
+
+#Generate the test set results
+lift_results <- data.frame(Class = lift_testing$Class)
+lift_results$FDA <- predict(fda_lift, lift_testing, type = "prob")[,"Class1"]
+lift_results$LDA <- predict(lda_lift, lift_testing, type = "prob")[,"Class1"]
+head(lift_results)
+
+#plot lift curve
+#graph shows that to find 60% of the hits, more than 30% of the data can be sampled
+trellis.par.set(caretTheme())
+lift_obj <- lift(Class ~ FDA + LDA, data = lift_results)
+plot(lift_obj, values = 60, auto.key = list(columns = 3,
+                                            lines = TRUE,
+                                            points = FALSE))
+
+#Compute area under the curve for predicting delay22min with the model
+prob <- predict(glmMod, newdata=testing, type="response")
+pred <- prediction(prob, testing$delay22min)
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+
+#Task 3. Create ROC curve for model
+# Plot ROC curve
+plot(perf, colorize = TRUE)
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+auc #0.951452
+
 ```
 
 
@@ -38,16 +107,52 @@ Using the `caret` and `rpart` packages, create a **classification** model for fl
 - A plot of your model -- (the actual tree; there are several ways to do this)
 - A discussion of your model 
 
-
-
 Show and describe all work
 
 ```{r rpart model}
-# Your Work Here
+
+#Task 1. An articulation of the the problem you are trying to solve
+#I am trying to find out which airport has the most amount of arrival flight delays greater than 15 minutes.
+
+#nycflights3 <- read.csv("nycflights3.csv")
+
+#Task 2. A naive model using linear regression
+inTraining3 <- createDataPartition(nycflights3$delay15min, p = .75, list = FALSE)
+training3 <- nycflights3[ inTraining3,]
+testing3 <- nycflights3[-inTraining3,]
+
+lmMod3 <- lm(arr_delay ~ carrier, data = training3)
+
+#prediction
+predlm <- predict(lmMod3, newdata=testing3, type = "response")
+
+#label predictions as same level as last column in NYCflights3 data set and change class to factor
+model_predlm <- rep("delay < 15min", 81836)
+model_predlm[predlm > 15] <- "delay >= 15 min"
+model_predlm <- as.factor(model_predlm)
+
+#train CART model
+rpart1 <- rpart(carrier ~ ., data = training3, control = rpart.control(maxdepth = 2))
+rpart1
+
+#Task 3. An unbiased calculation of the performance metric
+#create a confusion matrix using the caret package
+confusionMatrix(data=model_predlm, testing3$delay15min)
+
+#Task 4. A plot of your model -- (the actual tree; there are several ways to do this)
+rpart1a <- as.party(rpart1)
+plot(rpart1a)
+
+#Task 5. A discussion of your model 
+#Model shows that 24% of the flights are delayed more than 15 minutes while 76% of the flights are on-time.
+
 ```
 
 
 ### Questions:
 
 - Discuss the difference between the models and why you would use one model over the other?
+I used a linear regression and k-nearest neighbors as my naive models. k-nearest neighbors is a classifcation model whereas linear regression is not.
+
 - How might you produce an ROC type curve for the *rpart* model? 
+I would need to plot the performance of the model which is based on the prediction and actual results.
