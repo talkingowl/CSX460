@@ -1,0 +1,95 @@
+---
+title: "Improving Model Perfromance / Tuning Parameters"
+author: "Jennifer Lee"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(caret)
+```
+
+## Tuning Parameter
+
+Generically and regardless of model type, what are the purposes of a model
+tuning parameters?
+
+The purposes of model tuning parameters is to tune a model by setting parameters so that you can optimize your results and enable your algorithm to perform the "best." For example, in the model k nearest neighbors, you can tune the model by specifying the number of k's in the model that are used.
+
+## Caret Models
+
+This assignment demonstrates the use of caret for constructing models. Each
+model should be built and compared using using `Kappa` as the performance
+metric calculated using 10-fold repeated cross-validation with 3 folds.
+
+Using the rectangular data that you created for the NYCFlights to create a model
+for arr_delay >= 15 minutes.
+
+- glm
+- rpart
+- knn
+- C50
+- randomForest
+- adaBoost
+- Two methods of your choice from the Caret Model List (you will need to install any dependencies)
+
+Save the caret objects with the names provided.
+
+```{r}
+#Read the joined NYC flights data set with added "delay" column
+nycflights.all <- read.csv("nycflights-all.csv")
+
+#Create a new column called "delay15min" with two categories: flights with an arrival delay >= 15 min and flights with arrival delay < 15 min
+nycflights.all$delay15min <- ifelse(nycflights.all$arr_delay >= 15, 1, 0) 
+nycflights.all$delay15min <- as.factor(nycflights.all$delay15min)
+#Remove NAs in delay column
+nycflights.all <- nycflights.all[complete.cases(nycflights.all$delay15min),]
+
+#Split data into training and testing data sets
+set.seed(1000)
+inTraining <- createDataPartition(nycflights.all$delay15min, p = .75, list = FALSE)
+training <- nycflights.all[ inTraining,]
+testing <- nycflights.all[-inTraining,]
+training2 <- training[1:1000,]
+
+#Create formula
+formula <- delay15min ~ dep_time + sched_dep_time + dep_delay + arr_time + sched_arr_time + arr_delay + flight + air_time + distance + alt.x
+
+#Calculate training or apparent performance of the model. Create a stratified random sample of the data into training and test sets using caret
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+
+#1. Build the logistic regression model
+#fit.glm <- glm(formula = delay15min ~ month.x + dep_time + dep_delay + arr_time + air_time + distance + temp + humid, family = binomial, data = training)
+
+fit.glm <- train(formula, data = training, method = "glm", trControl = trctrl, metric = 'kappa', preProcess = c("center", "scale"))
+fit.glm
+#kappa = 1
+
+#2. Build the K Nearest Neighbors model
+fit.knn <- train(formula, data = training, method = "knn", trControl = trctrl, preProcess = c("center", "scale"))
+fit.knn
+
+#3. Build the rpart model
+fit.rpart <- train(formula, data = training2, method = "rpart", trControl = trctrl, preProcess = c("center", "scale"))
+fit.rpart
+
+#4. Build the Random Forest model
+fit.rf <-  train(formula, data = training2, method = "rf", trControl = trctrl, preProcess = c("center", "scale"), metric = 'kappa')
+fit.rf
+
+#5. Build the Stochastic Gradient Boosting model
+fit.gbm <- train(formula, data = training2, method = "gbm", trControl = trctrl, metric = 'kappa', verbose=FALSE)
+fit.gbm
+
+#6. Build Learning Vector Quantization
+fit.lvq <- train(formula, data = training2, method = "lvq", trControl = trctrl, metric = 'kappa')
+fit.lvq
+
+```
+
+Compare the  models?
+
+Which is best?  Why?
+
+Run the fit models through a function of manuall kappa calculation and create a table that compares all the values
