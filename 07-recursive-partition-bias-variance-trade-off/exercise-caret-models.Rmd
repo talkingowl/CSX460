@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 library(caret)
+library(readr)
 ```
 
 ## Tuning Parameter
@@ -37,8 +38,16 @@ for arr_delay >= 15 minutes.
 Save the caret objects with the names provided.
 
 ```{r}
-#Read the joined NYC flights data set with added "delay" column
-nycflights.all <- read.csv("nycflights-all.csv")
+#Read the following csv files from data folder from week 2 of class
+airports <- read_csv("airports.csv")
+flights <- read_csv("flights.csv")
+planes <- read_csv("planes.csv")
+weather <- read_csv("weather.csv")
+#Combine datasets into one data table:
+nycflights.all <- left_join(flights, planes, by = "tailnum")
+nycflights.all <- left_join(nycflights.all, airports, c("origin" = "faa"))
+nycflights.all <- left_join(nycflights.all, airports, c("dest" = "faa"))
+nycflights.all <- left_join(nycflights.all, weather, by = c("origin" = "origin", "time_hour" = "time_hour"))
 
 #Create a new column called "delay15min" with two categories: flights with an arrival delay >= 15 min and flights with arrival delay < 15 min
 nycflights.all$delay15min <- ifelse(nycflights.all$arr_delay >= 15, 1, 0) 
