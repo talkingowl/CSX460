@@ -6,9 +6,10 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
 library(caret)
 library(readr)
+library(dplyr)
+library(e1071)
 ```
 
 ## Tuning Parameter
@@ -49,18 +50,24 @@ nycflights.all <- left_join(nycflights.all, airports, c("origin" = "faa"))
 nycflights.all <- left_join(nycflights.all, airports, c("dest" = "faa"))
 nycflights.all <- left_join(nycflights.all, weather, by = c("origin" = "origin", "time_hour" = "time_hour"))
 
+#Keep relevant columns
+nycflights.all <- nycflights.all[c("month.x", "dep_time", "dep_delay", "arr_time", "arr_delay", "origin", "dest", "air_time", "distance", "alt.y", "hour.x", "tz.y", "temp", "dewp","humid","wind_dir", "wind_speed","wind_gust", "precip","pressure", "visib")]
+
 #Create a new column called "delay15min" with two categories: flights with an arrival delay >= 15 min and flights with arrival delay < 15 min
 nycflights.all$delay15min <- ifelse(nycflights.all$arr_delay >= 15, 1, 0) 
 nycflights.all$delay15min <- as.factor(nycflights.all$delay15min)
+
 #Remove NAs in delay column
-nycflights.all <- nycflights.all[complete.cases(nycflights.all$delay15min),]
+nycflights.all <- nycflights.all[complete.cases(nycflights.all),]
+
+#Decrease data frame size since the full data set takes too long to run completely
+nycflights.all <- nycflights.all[sample(1:nrow(nycflights.all), 10000, replace=FALSE),]
 
 #Split data into training and testing data sets
 set.seed(1000)
-inTraining <- createDataPartition(nycflights.all$delay15min, p = .75, list = FALSE)
+inTraining <- createDataPartition(nycflights.all$delay15min, p = .66, list = FALSE)
 training <- nycflights.all[ inTraining,]
 testing <- nycflights.all[-inTraining,]
-training2 <- training[1:1000,]
 
 #Create formula
 formula <- delay15min ~ dep_time + sched_dep_time + dep_delay + arr_time + sched_arr_time + arr_delay + flight + air_time + distance + alt.x
@@ -71,28 +78,36 @@ trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
 #1. Build the logistic regression model
 #fit.glm <- glm(formula = delay15min ~ month.x + dep_time + dep_delay + arr_time + air_time + distance + temp + humid, family = binomial, data = training)
 
-fit.glm <- train(formula, data = training, method = "glm", trControl = trctrl, metric = 'kappa', preProcess = c("center", "scale"))
+fit.glm <- train(delay15min ~ ., data = training, method = "glm", trControl = trctrl, metric = 'kappa', preProcess = c("center", "scale"))
 fit.glm
-#kappa = 1
+#kappa = 0.9717484
 
 #2. Build the K Nearest Neighbors model
-fit.knn <- train(formula, data = training, method = "knn", trControl = trctrl, preProcess = c("center", "scale"))
+fit.knn <- train(delay15min ~ ., data = training, method = "knn", trControl = trctrl, preProcess = c("center", "scale"))
 fit.knn
 
 #3. Build the rpart model
-fit.rpart <- train(formula, data = training2, method = "rpart", trControl = trctrl, preProcess = c("center", "scale"))
+fit.rpart <- train(delay15min ~ ., data = training2, method = "rpart", trControl = trctrl, preProcess = c("center", "scale"))
 fit.rpart
 
 #4. Build the Random Forest model
-fit.rf <-  train(formula, data = training2, method = "rf", trControl = trctrl, preProcess = c("center", "scale"), metric = 'kappa')
+fit.rf <-  train(delay15min ~ ., data = training2, method = "rf", trControl = trctrl, preProcess = c("center", "scale"), metric = 'kappa')
 fit.rf
 
-#5. Build the Stochastic Gradient Boosting model
-fit.gbm <- train(formula, data = training2, method = "gbm", trControl = trctrl, metric = 'kappa', verbose=FALSE)
+#5. Build C5.0 Model
+fit.c50 <- train(delay15min ~ ., data = training2, method = "C5.0", trControl = trctrl, metric = 'kappa')
+fit.c50
+
+#6. Build AdaBoost Classification Trees model
+fit.adaboost <- train(delay15min ~ ., data = training2, method = "adaboost", trControl = trctrl, metric = 'kappa')
+fit.adaboost
+
+#7. Build the Stochastic Gradient Boosting model
+fit.gbm <- train(delay15min ~ ., data = training2, method = "gbm", trControl = trctrl, metric = 'kappa', verbose=FALSE)
 fit.gbm
 
-#6. Build Learning Vector Quantization
-fit.lvq <- train(formula, data = training2, method = "lvq", trControl = trctrl, metric = 'kappa')
+#8. Build Learning Vector Quantization
+fit.lvq <- train(delay15min ~ ., data = training2, method = "lvq", trControl = trctrl, metric = 'kappa')
 fit.lvq
 
 ```
