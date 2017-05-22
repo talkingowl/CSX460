@@ -9,7 +9,13 @@ output: html_document
 library(caret)
 library(readr)
 library(dplyr)
-library(e1071)
+library(rpart)
+library(plyr)
+library(C50)
+library(randomForest)
+library(gbm)
+library(class)
+library(fastAdaboost)
 ```
 
 ## Tuning Parameter
@@ -61,16 +67,13 @@ nycflights.all$delay15min <- as.factor(nycflights.all$delay15min)
 nycflights.all <- nycflights.all[complete.cases(nycflights.all),]
 
 #Decrease data frame size since the full data set takes too long to run completely
-nycflights.all <- nycflights.all[sample(1:nrow(nycflights.all), 10000, replace=FALSE),]
+nycflights.all <- nycflights.all[sample(1:nrow(nycflights.all), 1000, replace=FALSE),]
 
 #Split data into training and testing data sets
 set.seed(1000)
 inTraining <- createDataPartition(nycflights.all$delay15min, p = .66, list = FALSE)
 training <- nycflights.all[ inTraining,]
 testing <- nycflights.all[-inTraining,]
-
-#Create formula
-formula <- delay15min ~ dep_time + sched_dep_time + dep_delay + arr_time + sched_arr_time + arr_delay + flight + air_time + distance + alt.x
 
 #Calculate training or apparent performance of the model. Create a stratified random sample of the data into training and test sets using caret
 trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
@@ -80,40 +83,48 @@ trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
 
 fit.glm <- train(delay15min ~ ., data = training, method = "glm", trControl = trctrl, metric = 'kappa', preProcess = c("center", "scale"))
 fit.glm
-#kappa = 0.9717484
+#kappa = 0.8348222
 
 #2. Build the K Nearest Neighbors model
 fit.knn <- train(delay15min ~ ., data = training, method = "knn", trControl = trctrl, preProcess = c("center", "scale"))
 fit.knn
+#kappa = 0.2194831
 
 #3. Build the rpart model
-fit.rpart <- train(delay15min ~ ., data = training2, method = "rpart", trControl = trctrl, preProcess = c("center", "scale"))
+fit.rpart <- train(delay15min ~ ., data = training, method = "rpart", trControl = trctrl, preProcess = c("center", "scale"))
 fit.rpart
+#kappa = 0.9974566
 
 #4. Build the Random Forest model
-fit.rf <-  train(delay15min ~ ., data = training2, method = "rf", trControl = trctrl, preProcess = c("center", "scale"), metric = 'kappa')
+fit.rf <-  train(delay15min ~ ., data = training, method = "rf", trControl = trctrl, preProcess = c("center", "scale"), metric = 'kappa')
 fit.rf
+#kappa = 1
 
 #5. Build C5.0 Model
-fit.c50 <- train(delay15min ~ ., data = training2, method = "C5.0", trControl = trctrl, metric = 'kappa')
+fit.c50 <- train(delay15min ~ ., data = training, method = "C5.0", trControl = trctrl, metric = 'kappa', verbose=FALSE)
 fit.c50
+#kappa = 1
 
 #6. Build AdaBoost Classification Trees model
-fit.adaboost <- train(delay15min ~ ., data = training2, method = "adaboost", trControl = trctrl, metric = 'kappa')
+fit.adaboost <- train(delay15min ~ ., data = training, method = "adaboost", trControl = trctrl, metric = 'kappa', verbose = FALSE)
 fit.adaboost
+#kappa = 1
 
 #7. Build the Stochastic Gradient Boosting model
-fit.gbm <- train(delay15min ~ ., data = training2, method = "gbm", trControl = trctrl, metric = 'kappa', verbose=FALSE)
+fit.gbm <- train(delay15min ~ ., data = training, method = "gbm", trControl = trctrl, metric = 'kappa', verbose=FALSE)
 fit.gbm
+#kappa = 1
 
 #8. Build Learning Vector Quantization
-fit.lvq <- train(delay15min ~ ., data = training2, method = "lvq", trControl = trctrl, metric = 'kappa')
+fit.lvq <- train(delay15min ~ ., data = training, method = "lvq", trControl = trctrl, metric = 'kappa')
 fit.lvq
-
+#kappa = 0.2656049
 ```
 
 Compare the  models?
 
 Which is best?  Why?
+There were a number of models that produced a kappa value of 1, these were random forest, C5.0, adaboost, and stochastic gradient boosting (gbm). Although it is important to note that the sample size had to be reduced to 1,000 observations with 661 observations in the training data set. This was because the caret package runs through each algorithm multiple times to find the most optimum parameters so in order to prevent the model from taking hours to execute, a smaller sample size was used.
 
 Run the fit models through a function of manuall kappa calculation and create a table that compares all the values
+
